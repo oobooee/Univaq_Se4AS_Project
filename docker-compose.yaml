@@ -1,0 +1,207 @@
+services:
+
+  river_1:
+    build:
+      context: ./MANAGED_RESOURCES/SENSORS/River_1
+    container_name: River_1
+    env_file:
+      - .env 
+      - ./MANAGED_RESOURCES/SENSORS/River_1/.env  
+    networks:
+      - network
+    depends_on:
+      mqtt:
+        condition: service_healthy
+    restart: always
+
+  river_2:
+    build:
+      context: ./MANAGED_RESOURCES/SENSORS/River_2
+    container_name: River_2
+    env_file:
+      - .env 
+      - ./MANAGED_RESOURCES/SENSORS/River_2/.env  
+    networks:
+      - network
+    depends_on:
+      mqtt:
+        condition: service_healthy
+    restart: always
+
+  pump_1:
+    build:
+      context: ./MANAGED_RESOURCES/SENSORS/Solar_energy_pump_1
+    container_name: Solar_energy_pump_1
+    env_file:
+      - .env 
+      - ./MANAGED_RESOURCES/SENSORS/Solar_energy_pump_1/.env  
+    networks:
+      - network
+    depends_on:
+      mqtt:
+        condition: service_healthy
+    restart: always
+
+  spillway_gate_1:
+    build:
+      context: ./MANAGED_RESOURCES/ACTUATORS/Spillway_Gate_1
+    container_name: Spillway_Gate_1
+    env_file:
+      - .env 
+      - ./MANAGED_RESOURCES/ACTUATORS/Spillway_Gate_1/.env  
+    networks:
+      - network
+    depends_on:
+      mqtt:
+        condition: service_healthy
+    restart: always      
+
+  spillway_gate_2:
+    build:
+      context: ./MANAGED_RESOURCES/ACTUATORS/Spillway_Gate_2
+    container_name: Spillway_Gate_2
+    env_file:
+      - .env  
+      - ./MANAGED_RESOURCES/ACTUATORS/Spillway_Gate_2/.env   
+    networks:
+     - network
+    depends_on:
+      mqtt:
+       condition: service_healthy
+    restart: always
+
+  power_gate:
+    build:
+      context: ./MANAGED_RESOURCES/ACTUATORS/Power_Gate
+    container_name: Power_Gate
+    env_file:
+      - .env  
+      - ./MANAGED_RESOURCES/ACTUATORS/Power_Gate/.env 
+    networks:
+      - network
+    depends_on:
+      mqtt:
+        condition: service_healthy
+    restart: always
+ 
+  monitor:
+    build:
+      context: ./MONITOR
+    container_name: my_se4as_pr_MONITOR
+    env_file:
+      - .env   
+    networks:
+     - network
+    depends_on:
+      mqtt:
+       condition: service_healthy
+      influxdb:
+       condition: service_healthy
+    restart: always
+
+  analyzer:
+    build:
+      context: ./ANALYZER
+    container_name: my_se4as_pr_ANALYZER
+    env_file:
+      - .env   
+    networks:
+     - network
+    depends_on:
+      mqtt:
+       condition: service_healthy
+      influxdb:
+       condition: service_healthy
+    restart: always
+
+  planner:
+      build:
+        context: ./PLANNER
+      container_name: my_se4as_pr_PLANNER
+      env_file:
+        - .env   
+      networks:
+      - network
+      depends_on:
+        mqtt:
+          condition: service_healthy
+        influxdb:
+          condition: service_healthy
+      restart: always
+  
+  executor:
+      build:
+        context: ./EXECUTOR
+      container_name: my_se4as_pr_EXECUTOR
+      env_file:
+        - .env   
+      networks:
+      - network
+      depends_on:
+        mqtt:
+          condition: service_healthy
+        influxdb:
+          condition: service_healthy
+      restart: always
+
+  mqtt:
+    container_name: my_se4as_pr_mosquitto
+    restart: always
+    build: ./mqtt
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mqtt/config:/mosquitto/config
+      - ./mqtt/log:/mosquitto/log
+      - ./mqtt/data/:/mosquitto/data
+    networks:
+      - network
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 1883"]
+      interval: 5s
+      timeout: 10s
+      retries: 50
+
+  grafana:
+    container_name: my_se4as_pr_grafana
+    restart: always
+    build: ./grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana/data:/var/lib/grafana:rw
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini
+    networks:
+      - network
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    ports:
+      - 3000:3000 
+    
+  influxdb:
+    container_name: my_se4as_pr_influxdb
+    restart: always
+    build: ./influxdb
+    env_file:
+      - .env
+    volumes:
+      - ./influxdb/data:/var/lib/influxdb2:rw
+      - ./influxdb/config:/etc/influxdb2
+    ports:
+       - 8086:8086
+    networks:
+      - network
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail http://localhost:8086/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 30
+
+networks:
+  network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.123.0/24

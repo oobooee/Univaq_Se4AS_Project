@@ -1,0 +1,7 @@
+paho-mqtt==1.6.1
+python-dotenv
+influxdb_client
+pandas
+numpy
+joblib
+scikit-learn
